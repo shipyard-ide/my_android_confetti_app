@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,20 +62,50 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-private val ConfettiColors = longArrayOf(
-    0xFFFF6B6BL, // Red
-    0xFF4ECDC4L, // Teal
-    0xFFFFE66DL, // Yellow
-    0xFF95E1D3L, // Mint
-    0xFFF38181L, // Coral
-    0xFFAA96DAL, // Purple
-    0xFFFF9FF3L, // Pink
-    0xFF54A0FFL, // Blue
-    0xFF5F27CDL, // Deep Purple
-    0xFF00D2D3L, // Cyan
-    0xFFFF9F43L, // Orange
-    0xFF10AC84L, // Green
-)
+enum class ColorTheme(val displayName: String, val colors: LongArray) {
+    PARTY("Party", longArrayOf(
+        0xFFFF6B6BL, // Red
+        0xFF4ECDC4L, // Teal
+        0xFFFFE66DL, // Yellow
+        0xFF95E1D3L, // Mint
+        0xFFF38181L, // Coral
+        0xFFAA96DAL, // Purple
+        0xFFFF9FF3L, // Pink
+        0xFF54A0FFL, // Blue
+        0xFF5F27CDL, // Deep Purple
+        0xFF00D2D3L, // Cyan
+        0xFFFF9F43L, // Orange
+        0xFF10AC84L, // Green
+    )),
+    OCEAN("Ocean", longArrayOf(
+        0xFF0077B6L, // Deep Blue
+        0xFF00B4D8L, // Cyan
+        0xFF90E0EFL, // Light Blue
+        0xFF48CAE4L, // Sky
+        0xFF023E8AL, // Navy
+        0xFFCAF0F8L, // Pale Cyan
+        0xFF0096C7L, // Ocean Blue
+        0xFF03045EL, // Dark Navy
+        0xFF00A8E8L, // Bright Blue
+        0xFF007EA7L, // Teal Blue
+        0xFF5BC0BEL, // Seafoam
+        0xFF003459L, // Midnight
+    )),
+    SUNSET("Sunset", longArrayOf(
+        0xFFFF6B35L, // Bright Orange
+        0xFFF7931EL, // Orange
+        0xFFFFD23FL, // Yellow
+        0xFFEE4266L, // Red Pink
+        0xFFFFB703L, // Golden
+        0xFFFF006EL, // Hot Pink
+        0xFFFF4D6DL, // Coral Red
+        0xFFFB5607L, // Orange Red
+        0xFFFFBE0BL, // Amber
+        0xFFFF7B00L, // Dark Orange
+        0xFFFF5400L, // Red Orange
+        0xFFFFAA00L, // Gold
+    ))
+}
 
 private const val MAX_DT = 0.025f // Cap at ~40fps (25ms) - if frame takes longer, slow-mo instead of jump
 private const val GRAVITY = 450f // Gentler gravity for longer falls
@@ -174,10 +207,12 @@ class ConfettiEngine {
         x: Float,
         y: Float,
         particleCount: IntRange = 60..90,
-        speedMultiplier: Float = 1f
+        speedMultiplier: Float = 1f,
+        theme: ColorTheme = ColorTheme.PARTY
     ) {
         val count = Random.nextInt(particleCount.first, particleCount.last + 1)
         val twoPi = (Math.PI * 2).toFloat()
+        val themeColors = theme.colors
         
         repeat(count) {
             val angle = Random.nextFloat() * twoPi
@@ -191,7 +226,7 @@ class ConfettiEngine {
                 y = y,
                 vx = cosAngle * speed,
                 vy = sinAngle * speed - 240f * speedMultiplier,
-                colorLong = ConfettiColors[Random.nextInt(ConfettiColors.size)],
+                colorLong = themeColors[Random.nextInt(themeColors.size)],
                 size = Random.nextFloat() * 10f + 8f,
                 aspectRatio = if (shape == ConfettiShape.RIBBON) 
                     Random.nextFloat() * 2f + 3f 
@@ -349,6 +384,7 @@ fun vibrate(context: Context, durationMs: Long = 50, amplitude: Int = 100) {
 fun ConfettiScreen(modifier: Modifier = Modifier) {
     val engine = remember { ConfettiEngine() }
     var tapCount by remember { mutableIntStateOf(0) }
+    var currentTheme by remember { mutableStateOf(ColorTheme.PARTY) }
     val context = LocalContext.current
     
     BoxWithConstraints(
@@ -389,7 +425,8 @@ fun ConfettiScreen(modifier: Modifier = Modifier) {
                                     x = Random.nextFloat() * screenWidthPx,
                                     y = Random.nextFloat() * screenHeightPx * 0.6f,
                                     particleCount = 40..60,
-                                    speedMultiplier = 1.2f
+                                    speedMultiplier = 1.2f,
+                                    theme = currentTheme
                                 )
                             }
                         }
@@ -430,12 +467,12 @@ fun ConfettiScreen(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
+                .pointerInput(currentTheme) {
                     detectTapGestures(
                         onTap = { offset ->
                             vibrate(context, 30, 80)
                             tapCount++
-                            engine.addBurst(offset.x, offset.y)
+                            engine.addBurst(offset.x, offset.y, theme = currentTheme)
                         },
                         onLongPress = { offset ->
                             vibrate(context, 80, 255)
@@ -444,7 +481,8 @@ fun ConfettiScreen(modifier: Modifier = Modifier) {
                                 x = offset.x,
                                 y = offset.y,
                                 particleCount = 150..200,
-                                speedMultiplier = 1.5f
+                                speedMultiplier = 1.5f,
+                                theme = currentTheme
                             )
                         }
                     )
@@ -489,6 +527,48 @@ fun ConfettiScreen(modifier: Modifier = Modifier) {
                     engine.draw(this)
                 }
             }
+            
+            FloatingActionButton(
+                onClick = {
+                    vibrate(context, 30, 80)
+                    currentTheme = when (currentTheme) {
+                        ColorTheme.PARTY -> ColorTheme.OCEAN
+                        ColorTheme.OCEAN -> ColorTheme.SUNSET
+                        ColorTheme.SUNSET -> ColorTheme.PARTY
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 96.dp)
+                    .size(56.dp),
+                shape = CircleShape,
+                containerColor = Color(
+                    when (currentTheme) {
+                        ColorTheme.PARTY -> 0xFFAA96DAL
+                        ColorTheme.OCEAN -> 0xFF0077B6L
+                        ColorTheme.SUNSET -> 0xFFFF6B35L
+                    }
+                ),
+                contentColor = Color.White
+            ) {
+                Text(
+                    text = when (currentTheme) {
+                        ColorTheme.PARTY -> "🎉"
+                        ColorTheme.OCEAN -> "🌊"
+                        ColorTheme.SUNSET -> "🌅"
+                    },
+                    fontSize = 24.sp
+                )
+            }
+            
+            Text(
+                text = "Theme: ${currentTheme.displayName}",
+                color = Color(0xFF9CA3AF),
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 72.dp)
+            )
         }
     }
 }
